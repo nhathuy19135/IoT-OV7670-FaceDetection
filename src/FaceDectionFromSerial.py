@@ -1,3 +1,6 @@
+# This program reads data from the serial port and displays it as an image.
+# It also detects faces in the image and sends the number of faces to Blynk and ThingSpeak.
+# This program has screen-tearing issue that is yet to be fixed. Suggest using FaceDetectionFromFile.py instead.
 from os import getenv
 import serial
 import cv2
@@ -35,22 +38,24 @@ while True:
     # reshape the data into an image
     image = image.reshape((240, 320))
     faces = face_cascade.detectMultiScale(image, 1.3, 5)
-    
+
     # draw rectangles around the faces
-    for (x,y,w,h) in faces:
-        cv2.rectangle(image,(x,y),(x+w,y+h),(255,0,0),2)
-        
+    for (x, y, w, h) in faces:
+        cv2.rectangle(image, (x, y), (x+w, y+h), (255, 0, 0), 2)
+
     # print the number of faces detected
     num_faces = len(faces)
-    print ("Num faces: ", num_faces)   
-    
-        # Send number of faces to Blynk
-    blynk_url = requests.get(f"http://blynk.cloud/external/api/update?token={auth_token}&{pin}={num_faces}", )
-    print ("Blynk response: ", blynk_url , blynk_url.text)
-        
-        # Send number of faces to ThingSpeak
-    thingSpeak_url = requests.get(f"https://api.thingspeak.com/update?api_key={api_key}&field1={num_faces}")
-    print ("ThingSpeak response: ", thingSpeak_url , thingSpeak_url.text)
+    print("Num faces: ", num_faces)
+
+    # Send number of faces to Blynk
+    blynk_url = requests.get(
+        f"http://blynk.cloud/external/api/update?token={auth_token}&{pin}={num_faces}", )
+    print("Blynk response: ", blynk_url, blynk_url.text)
+
+    # Send number of faces to ThingSpeak
+    thingSpeak_url = requests.get(
+        f"https://api.thingspeak.com/update?api_key={api_key}&field1={num_faces}")
+    print("ThingSpeak response: ", thingSpeak_url, thingSpeak_url.text)
 
     # display the image using OpenCV
     cv2.imshow('Image', image)
