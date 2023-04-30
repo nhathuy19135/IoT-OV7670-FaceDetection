@@ -6,16 +6,22 @@ import time
 import requests
 import time
 import blynklib
+from mega import Mega
 from dotenv import load_dotenv, find_dotenv
 
 pin = 'v4'
-
+mega = Mega()
 
 load_dotenv(find_dotenv())
 api_key = os.getenv("THINGSPEAK_WRITE_TOKEN")
 auth_token = os.getenv("BLYNK_AUTH_TOKEN")
+mega_mail = os.getenv("MEGA_MAIL")
+mega_password = os.getenv("MEGA_PASSWORD")
 
+m = mega.login(mega_mail, mega_password)
 blynk = blynklib.Blynk(auth_token)
+
+output_path = r'D:\uni22\IoT\imageTest\output'  # path to the output folder to send to MEGA.nz
 path = r'D:\uni22\IoT\imageTest'  # path to the folder with images
 
 stop_key = ord('q')  # wait for 'q' key to be pressed
@@ -36,11 +42,25 @@ while True:
             for (x, y, w, h) in faces:
                 img = cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
             # Display the image
-            cv2.imshow('ImageWindow', img)
+            try:
+                cv2.imshow('ImageWindow', img)
+            except cv2.error as e:
+                print(f"Error: {e}")
+            
+            output_filename = 'output_' + filename
+            
             last_time = time.time()
             # count the number of faces
             num_faces = len(faces)
             print("Num faces: ", num_faces)
+            
+            if num_faces > 0:
+                # Save the image to the output folder
+                cv2.imwrite(os.path.join(output_path, output_filename), img)
+                # Upload the image to MEGA.nz
+                m.upload(os.path.join(output_path, output_filename))
+                
+                
             # Send number of faces to Blynk
             blynk_url = requests.get(
                 f"http://blynk.cloud/external/api/update?token={auth_token}&{pin}={num_faces}", )
