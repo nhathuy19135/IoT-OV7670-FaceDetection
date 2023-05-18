@@ -8,6 +8,7 @@ import time
 import blynklib
 from mega import Mega
 from dotenv import load_dotenv, find_dotenv
+import threading
 
 pin = 'v4'
 mega = Mega()
@@ -20,7 +21,6 @@ mega_password = os.getenv("MEGA_PASSWORD")
 
 m = mega.login(mega_mail, mega_password)
 blynk = blynklib.Blynk(auth_token)
-
 output_path = r'D:\uni22\IoT\imageTest\output'  # path to the output folder to send to MEGA.nz
 path = r'D:\uni22\IoT\imageTest'  # path to the folder with images
 
@@ -30,8 +30,20 @@ last_time = time.time()  # time of the last image
 # Load the cascade for face detection
 face_cascade = cv2.CascadeClassifier('src\haarcascade_frontalface_default.xml')
 
+def upload_to_mega(file_path):
+    m.upload(file_path)
+
+def send_to_thingspeak():
+    thingSpeak_url = requests.get(
+                f"https://api.thingspeak.com/update?api_key={api_key}&field1={num_faces}")
+    print("ThingSpeak response: ", thingSpeak_url, thingSpeak_url.text)
+
+def send_to_blynk():
+    blynk_url = requests.get(
+                f"http://blynk.cloud/external/api/update?token={auth_token}&{pin}={num_faces}", )
+    print("Blynk response: ", blynk_url, blynk_url.text)
+    
 while True:
-    time.sleep(1)
     # Check if there are new images in the folder
     for filename in os.listdir(path):
         if os.path.getmtime(os.path.join(path, filename)) > last_time:
@@ -58,18 +70,26 @@ while True:
                 # Save the image to the output folder
                 cv2.imwrite(os.path.join(output_path, output_filename), img)
                 # Upload the image to MEGA.nz
-                m.upload(os.path.join(output_path, output_filename))
+                upload_thread = threading.Thread(target=upload_to_mega, args=(os.path.join(output_path, output_filename),))
+                upload_thread.start()                
                 
-                
-            # Send number of faces to Blynk
-            blynk_url = requests.get(
-                f"http://blynk.cloud/external/api/update?token={auth_token}&{pin}={num_faces}", )
-            print("Blynk response: ", blynk_url, blynk_url.text)
+            blynk_thread = threading.Thread(target=send_to_blynk)
+            thingspeak_thread = threading.Thread(target=send_to_thingspeak)
 
-            # Send number of faces to ThingSpeak
-            thingSpeak_url = requests.get(
-                f"https://api.thingspeak.com/update?api_key={api_key}&field1={num_faces}")
-            print("ThingSpeak response: ", thingSpeak_url, thingSpeak_url.text)
+            blynk_thread.start()
+            thingspeak_thread.start()
+            
+            blynk_thread.join()
+            thingspeak_thread.join()
+            # Send number of faces to Blynk
+            # blynk_url = requests.get(
+            #     f"http://blynk.cloud/external/api/update?token={auth_token}&{pin}={num_faces}", )
+            # print("Blynk response: ", blynk_url, blynk_url.text)
+
+            # # Send number of faces to ThingSpeak
+            # thingSpeak_url = requests.get(
+            #     f"https://api.thingspeak.com/update?api_key={api_key}&field1={num_faces}")
+            # print("ThingSpeak response: ", thingSpeak_url, thingSpeak_url.text)
 
         # Check if the user wants to stop the program
         if cv2.waitKey(1) & 0xFF == stop_key:
